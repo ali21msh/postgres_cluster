@@ -1,0 +1,92 @@
+version: '3'
+volumes:
+  postgres01:
+  postgres02:
+  postgres03:
+  pgadmin:
+services:
+
+  postgres01:
+    image: post_postgres
+    container_name: postgres01
+    volumes:
+      - /docker/data/postgres_cluster/postgres01/data:/var/lib/postgresql/data
+        #      - /docker/data/postgres_cluster/postgres01/log:/var/log/postgresql:z
+      - /docker/data/postgres_cluster/postgres01/backups:/opt/backups
+      - ./postgres/settings_master/postgresql.conf:/etc/postgres/postgresql.conf
+      - ./postgres/settings_master/pg_hba.conf:/etc/postgres/pg_hba.conf
+      - ./postgres/settings_master/initdb-postgis.sh:/docker-entrypoint-initdb.d/postgis.sh
+    command: "-c 'config_file=/etc/postgres/postgresql.conf'"
+    networks:
+      postgres_conn:
+          ipv4_address: 10.5.0.5
+    ports:
+      - '5435:5432'
+    env_file: .env
+
+  postgres02:
+    image: post_postgres
+    container_name: postgres02
+    volumes:
+      - /docker/data/postgres_cluster/postgres02/data:/var/lib/postgresql/data
+      - /docker/data/postgres_cluster/postgres02/backups:/opt/backups
+      - ./postgres/settings_slave/initdb-postgis.sh:/docker-entrypoint-initdb.d/postgis.sh
+    networks:
+      postgres_conn:
+          ipv4_address: 10.5.0.6
+    ports:
+      - '5436:5432'
+    env_file: .env
+
+  postgres03:
+    image: post_postgres
+    container_name: postgres03
+    volumes:
+      - /docker/data/postgres_cluster/postgres03/data:/var/lib/postgresql/data
+      - /docker/data/postgres_cluster/postgres03/backups:/opt/backups
+      - ./postgres/settings_slave/initdb-postgis.sh:/docker-entrypoint-initdb.d/postgis.sh
+    networks:
+      postgres_conn:
+          ipv4_address: 10.5.0.7
+    ports:
+      - '5437:5432'
+    env_file: .env
+
+  pgadmin:
+    image: post_pgadmin
+    container_name: pgadmin
+    environment:
+      - "PGADMIN_DEFAULT_EMAIL=shiveh@map.ir"
+      - "PGADMIN_DEFAULT_PASSWORD=atpq238rz"
+    volumes:
+       - /docker/data/postgres_cluster/pgadmin:/var/lib/pgadmin
+#    ports:
+#      - '5050:80'
+    networks:
+      postgres_conn:
+          ipv4_address: 10.5.0.8
+    restart: unless-stopped
+
+  openresty:
+    container_name: pgadmin_openresty
+    image: pgadmin_openresty
+    volumes:
+      - ./openresty/nginx.conf:/usr/local/openresty/nginx/conf/nginx.conf
+      - ./openresty/conf.d:/etc/nginx/conf.d
+      - ./openresty/lua:/usr/local/openresty/nginx/lua
+      - /docker/data/postgres_cluster/openresty:/usr/local/openresty/nginx/logs
+#      - /etc/apache2/.htpasswd:/etc/apache2/.htpasswd
+    ports:
+      - '1337:80'
+    networks:
+      postgres_conn:
+          ipv4_address: 10.5.0.9
+
+networks:
+  postgres_conn:
+    driver: bridge
+    ipam:
+     config:
+       - subnet: 10.5.0.0/16
+         #         gateway: 10.5.0.1
+
